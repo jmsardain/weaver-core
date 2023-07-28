@@ -208,7 +208,7 @@ class DataConfig(object):
             yaml.safe_dump(self.options, f, sort_keys=False)
 
     @classmethod
-    def load(cls, fp, load_observers=True, load_reweight_info=True, extra_selection=None, extra_test_selection=None):
+    def load(cls, fp, load_observers=True, load_reweight_info=True, extra_selection=None, extra_test_selection=None,print_info=True):
         with open(fp) as f:
             _opts = yaml.safe_load(f)
             options = copy.deepcopy(_opts)
@@ -223,7 +223,7 @@ class DataConfig(object):
                 options['test_time_selection'] = '(%s) & (%s)' % (_opts['selection'], extra_test_selection)
             else:
                 options['test_time_selection'] = '(%s) & (%s)' % (_opts['test_time_selection'], extra_test_selection)
-        return cls(**options)
+        return cls(**options,print_info=print_info)
 
     def copy(self):
         return self.__class__(print_info=False, **copy.deepcopy(self.options))

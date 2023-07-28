@@ -38,8 +38,7 @@ def _finalize_inputs(table, data_config):
             table[k] = pad_fn(table[k], params['length'])
         # check for NaN
         if np.any(np.isnan(table[k])):
-            _logger.warning(
-                'Found NaN in %s, silently converting it to 0.', k)
+            #_logger.warning('Found NaN in %s, silently converting it to 0.', k) #Removed Comment to make it silent
             table[k] = np.nan_to_num(table[k])
     # stack variables for each input group
     for k, names in data_config.input_dicts.items():
@@ -295,7 +294,8 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
     def __init__(self, file_dict, data_config_file,
                  for_training=True, load_range_and_fraction=None, extra_selection=None,
                  fetch_by_files=False, fetch_step=0.01, file_fraction=1, remake_weights=False, up_sample=True,
-                 weight_scale=1, max_resample=10, async_load=True, infinity_mode=False, in_memory=False, name=''):
+                 weight_scale=1, max_resample=10, async_load=True, infinity_mode=False, in_memory=False, name='',load_observers_during_training=False,
+                 print_info=True):
         self._iters = {} if infinity_mode or in_memory else None
         _init_args = set(self.__dict__.keys())
         self._init_file_dict = file_dict
@@ -332,7 +332,7 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
                              data_config_file)
 
         # load data config (w/ observers now -- so they will be included in the auto-generated yaml)
-        self._data_config = DataConfig.load(data_config_file)
+        self._data_config = DataConfig.load(data_config_file,print_info=print_info)
 
         if for_training:
             # produce variable standardization info if needed
@@ -352,10 +352,11 @@ class SimpleIterDataset(torch.utils.data.IterableDataset):
                 _logger.info(
                     'Found file %s w/ auto-generated preprocessing information, will use that instead!' %
                     data_config_file)
-            self._data_config = DataConfig.load(data_config_file, load_observers=False, extra_selection=extra_selection)
+            self._data_config = DataConfig.load(data_config_file, load_observers=load_observers_during_training, extra_selection=extra_selection,print_info=print_info)
+
         else:
             self._data_config = DataConfig.load(
-                data_config_file, load_reweight_info=False, extra_test_selection=extra_selection)
+                data_config_file, load_reweight_info=False, extra_test_selection=extra_selection,print_info=print_info)
 
         # derive all variables added to self.__dict__
         self._init_args = set(self.__dict__.keys()) - _init_args

@@ -42,8 +42,12 @@ def train_classification(model, loss_func, opt, scheduler, train_loader, dev, ep
     count = 0
     start_time = time.time()
     with tqdm.tqdm(train_loader) as tq:
-        for X, y, _ in tq:
+        for X, y, Z in tq: #Z is where observers are found
             inputs = [X[k].to(dev) for k in data_config.input_names]
+            try:
+                weight = Z['weight'].to(dev)
+            except Exception:
+                weight = 1
             label = y[data_config.label_names[0]].long()
             try:
                 label_mask = y[data_config.label_names[0] + '_mask'].bool()
@@ -58,6 +62,12 @@ def train_classification(model, loss_func, opt, scheduler, train_loader, dev, ep
                 model_output = model(*inputs)
                 logits = _flatten_preds(model_output, label_mask)
                 loss = loss_func(logits, label)
+
+                try:
+                    if len(loss.tolist())!=0: #Loss is an array therefore reduction not taking place                      
+                        loss = torch.mean(torch.mul(loss,weight)) #loss = mean(l_i*w_i)
+                except Exception: pass
+                    
             if grad_scaler is None:
                 loss.backward()
                 opt.step()
@@ -118,7 +128,7 @@ def train_classification(model, loss_func, opt, scheduler, train_loader, dev, ep
 
 
 def evaluate_classification(model, test_loader, dev, epoch, for_training=True, loss_func=None, steps_per_epoch=None,
-                            eval_metrics=['roc_auc_score', 'roc_auc_score_matrix', 'confusion_matrix'],
+                            eval_metrics=['roc_auc_score', 'roc_auc_score_matrix', 'confusion_matrix','acc'],
                             tb_helper=None):
     model.eval()
 
@@ -162,7 +172,16 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
                         observers[k].append(v.cpu().numpy())
 
                 _, preds = logits.max(1)
-                loss = 0 if loss_func is None else loss_func(logits, label).item()
+
+                if loss_func is None:
+                    loss = 0 
+                else:
+                    loss = loss_func(logits, label)
+                    try:
+                        if len(loss.tolist())!=0: #Loss is an array therefore reduction not taking place                      
+                            loss = torch.mean(loss) #loss = mean(l_i*w_i)
+                    except Exception: pass
+                    loss = loss.item()
 
                 num_batches += 1
                 count += num_examples
@@ -201,7 +220,7 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
 
     scores = np.concatenate(scores)
     labels = {k: _concat(v) for k, v in labels.items()}
-    metric_results = evaluate_metrics(labels[data_config.label_names[0]], scores, eval_metrics=eval_metrics)
+    metric_results = evaluate_metrics(labels[data_config.label_names[0]], scores[:,0], eval_metrics=eval_metrics)
     _logger.info('Evaluation metrics: \n%s', '\n'.join(
         ['    - %s: \n%s' % (k, str(v)) for k, v in metric_results.items()]))
 

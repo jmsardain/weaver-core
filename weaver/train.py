@@ -133,13 +133,16 @@ parser.add_argument('--log', type=str, default='',
                     help='path to the log file; `{auto}` can be used as part of the path to auto-generate a name, based on the timestamp and network configuration')
 parser.add_argument('--print', action='store_true', default=False,
                     help='do not run training/prediction but only print model information, e.g., FLOPs and number of parameters of a model')
+parser.add_argument('--data_config_print',  action=argparse.BooleanOptionalAction, default=True,
+                    help='when training/testing the network, do not print the data_config information')
 parser.add_argument('--profile', action='store_true', default=False,
                     help='run the profiler')
 parser.add_argument('--backend', type=str, choices=['gloo', 'nccl', 'mpi'], default=None,
                     help='backend for distributed training')
 parser.add_argument('--cross-validation', type=str, default=None,
                     help='enable k-fold cross validation; input format: `variable_name%k`')
-
+parser.add_argument('--load_observers_during_training',  action=argparse.BooleanOptionalAction, default=False,
+                    help='Loads observers during training, RISKY! only do if weight is only parameter in observers`')
 
 def to_filelist(args, mode='train'):
     if mode == 'train':
@@ -241,7 +244,8 @@ def train_load(args):
                                    fetch_step=args.fetch_step,
                                    infinity_mode=args.steps_per_epoch is not None,
                                    in_memory=args.in_memory,
-                                   name='train' + ('' if args.local_rank is None else '_rank%d' % args.local_rank))
+                                   name='train' + ('' if args.local_rank is None else '_rank%d' % args.local_rank),
+                                   load_observers_during_training=args.load_observers_during_training,print_info=args.data_config_print)
     val_data = SimpleIterDataset(val_file_dict, args.data_config, for_training=True,
                                  extra_selection=args.extra_selection,
                                  load_range_and_fraction=(val_range, args.data_fraction),
@@ -250,7 +254,9 @@ def train_load(args):
                                  fetch_step=args.fetch_step,
                                  infinity_mode=args.steps_per_epoch_val is not None,
                                  in_memory=args.in_memory,
-                                 name='val' + ('' if args.local_rank is None else '_rank%d' % args.local_rank))
+                                 name='val' + ('' if args.local_rank is None else '_rank%d' % args.local_rank),
+                                 load_observers_during_training=args.load_observers_during_training,
+                                 print_info=args.data_config_print)
     train_loader = DataLoader(train_data, batch_size=args.batch_size, drop_last=True, pin_memory=True,
                               num_workers=min(args.num_workers, int(len(train_files) * args.file_fraction)),
                               persistent_workers=args.num_workers > 0 and args.steps_per_epoch is not None)
@@ -306,13 +312,13 @@ def test_load(args):
                                       extra_selection=args.extra_test_selection,
                                       load_range_and_fraction=((0, 1), args.data_fraction),
                                       fetch_by_files=True, fetch_step=1,
-                                      name='test_' + name)
+                                      name='test_' + name,print_info=args.data_config_print)
         test_loader = DataLoader(test_data, num_workers=num_workers, batch_size=args.batch_size, drop_last=False,
                                  pin_memory=True)
         return test_loader
 
     test_loaders = {name: functools.partial(get_test_loader, name) for name in file_dict}
-    data_config = SimpleIterDataset({}, args.data_config, for_training=False).config
+    data_config = SimpleIterDataset({}, args.data_config, for_training=False,print_info=args.data_config_print).config
     return test_loaders, data_config
 
 
@@ -327,7 +333,7 @@ def onnx(args):
     _logger.info('Exporting model %s to ONNX' % model_path)
 
     from weaver.utils.dataset import DataConfig
-    data_config = DataConfig.load(args.data_config, load_observers=False, load_reweight_info=False)
+    data_config = DataConfig.load(args.data_config, load_observers=False, load_reweight_info=False,print_info=args.data_config_print)
     model, model_info, _ = model_setup(args, data_config)
     model.load_state_dict(torch.load(model_path, map_location='cpu'))
     model = model.cpu()

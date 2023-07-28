@@ -44,8 +44,15 @@ def confusion_matrix(y_true, y_score):
         y_pred = y_score.argmax(1)
     return _m.confusion_matrix(y_true, y_pred, normalize='true')
 
+def accuracy(y_true, y_score):
+    if y_score.ndim == 1:
+        y_pred = y_score > 0.5
+    else:
+        y_pred = y_score.argmax(1)
+    return _m.accuracy_score(y_true, y_pred, normalize=True)
 
 _metric_dict = {
+    'acc':accuracy,
     'roc_auc_score': partial(_m.roc_auc_score, multi_class='ovo'),
     'roc_auc_score_matrix': roc_auc_score_ovo,
     'confusion_matrix': confusion_matrix,
