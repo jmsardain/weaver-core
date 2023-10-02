@@ -62,9 +62,12 @@ def train_classification(model, loss_func, opt, scheduler, train_loader, dev, ep
                 model_output = model(*inputs)
                 logits = _flatten_preds(model_output, label_mask)
                 loss = loss_func(logits, label)
-
+                len_loss = len(loss.tolist())
                 try:
-                    if len(loss.tolist())!=0: #Loss is an array therefore reduction not taking place                      
+                    if len_loss!=0: #Loss is an array therefore reduction not taking place                      
+                        if len_loss != len(torch.masked_select(loss,~torch.isnan(loss)).tolist()):
+                            print("NAN IN THE LOSS ... REMOVING NAN")
+                            loss = torch.masked_select(loss,~torch.isnan(loss))
                         loss = torch.mean(torch.mul(loss,weight)) #loss = mean(l_i*w_i)
                 except Exception: pass
                     
@@ -220,7 +223,8 @@ def evaluate_classification(model, test_loader, dev, epoch, for_training=True, l
 
     scores = np.concatenate(scores)
     labels = {k: _concat(v) for k, v in labels.items()}
-    metric_results = evaluate_metrics(labels[data_config.label_names[0]], scores[:,0], eval_metrics=eval_metrics)
+
+    metric_results = evaluate_metrics(labels[data_config.label_names[0]], scores[:,-1], eval_metrics=eval_metrics)
     _logger.info('Evaluation metrics: \n%s', '\n'.join(
         ['    - %s: \n%s' % (k, str(v)) for k, v in metric_results.items()]))
 
