@@ -62,8 +62,8 @@ def train_classification(model, loss_func, opt, scheduler, train_loader, dev, ep
                 model_output = model(*inputs)
                 logits = _flatten_preds(model_output, label_mask)
                 loss = loss_func(logits, label)
-                len_loss = len(loss.tolist())
                 try:
+                    len_loss = len(loss.tolist())
                     if len_loss!=0: #Loss is an array therefore reduction not taking place                      
                         if len_loss != len(torch.masked_select(loss,~torch.isnan(loss)).tolist()):
                             print("NAN IN THE LOSS ... REMOVING NAN")
