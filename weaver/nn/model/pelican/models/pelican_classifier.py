@@ -124,8 +124,6 @@ class PELICANClassifier(nn.Module):
         # The first nonlinearity is the input encoder, which applies functions of the form ((1+x)^alpha-1)/alpha with trainable alphas.
         # In the C-safe case, this is still fine because inputs depends only on relative angles
         inputs = self.input_encoder(inputs, mask=edge_mask.unsqueeze(-1), mode='angle' if self.irc_safe else 'log')
-        print("inputs:", inputs[edge_mask].shape)
-        print(edge_mask.unsqueeze(-1))
         # If beams are included, then at this point we also append the scalar channels that contain particle labels.
         if self.num_scalars > 0:
             particle_scalars = self.eq1to2(particle_scalars, mask=edge_mask.unsqueeze(-1), nobj=nobj, irc_weight = irc_weight if self.irc_safe else None)
@@ -137,8 +135,6 @@ class PELICANClassifier(nn.Module):
 
         # The last equivariant 2->0 block is constructed here by hand: message layer, dropout, and Eq2to0.
         act2 = self.msg_2to0(act1, mask=edge_mask.unsqueeze(-1))
-        #print(act1)
-        #print(act2)
         if self.dropout:
             act2 = self.dropout_layer(act2)
         act3 = self.agg_2to0(act2, nobj = nobj, irc_weight = irc_weight if self.irc_safe else None)
@@ -156,10 +152,6 @@ class PELICANClassifier(nn.Module):
             logging.info(f"act1: {torch.isnan(act1).any()}")
             logging.info(f"act2: {torch.isnan(act2).any()}")
             logging.info(f"prediction: {torch.isnan(prediction).any()}")
-            print(f"inputs: {torch.isnan(inputs).any()}")
-            print(f"act1: {torch.isnan(act1).any()}")
-            print(f"act2: {torch.isnan(act2).any()}")
-            print(f"prediction: {torch.isnan(prediction).any()}")
         assert not torch.isnan(prediction).any(), "There are NaN entries in the output! Evaluation terminated."
 
         if covariance_test:

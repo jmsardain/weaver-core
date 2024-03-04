@@ -168,9 +168,9 @@ class Eq1to2(nn.Module):
         else:
             coefs = self.coefs
 
-        output = torch.einsum('dsb,ndbij->nijs', coefs, ops)
+        output = torch.einsum('dsb,ndbij->nijs', coefs.to(device='cuda'), ops.to(device='cuda'))
 
-        output = output + self.bias.view(1,1,-1)
+        output = output + self.bias.to(device='cuda').view(1,1,-1)
 
         if self.activate_lin:
             output = self.activation_fn(output)
