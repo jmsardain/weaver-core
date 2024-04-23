@@ -310,7 +310,7 @@ def test_load(args):
         num_workers = min(args.num_workers, len(filelist))
         test_data = SimpleIterDataset({name: filelist}, args.data_config, for_training=False,
                                       extra_selection=args.extra_test_selection,
-                                      load_range_and_fraction=((0, 1), args.data_fraction),
+                                      load_range_and_fraction=((0, 1), 1),
                                       fetch_by_files=True, fetch_step=1,
                                       name='test_' + name,print_info=args.data_config_print)
         test_loader = DataLoader(test_data, num_workers=num_workers, batch_size=args.batch_size, drop_last=False,
@@ -375,7 +375,6 @@ def flops(model, model_info):
     _logger.info('{:<30}  {:<8}'.format('Computational complexity: ', macs))
     _logger.info('{:<30}  {:<8}'.format('Number of parameters: ', params))
 
-
 def profile(args, model, model_info, device):
     """
     Profile.
@@ -389,7 +388,6 @@ def profile(args, model, model_info, device):
     model = copy.deepcopy(model)
     model = model.to(device)
     model.eval()
-
     inputs = tuple(
         torch.ones((args.batch_size,) + model_info['input_shapes'][k][1:],
                    dtype=torch.float32).to(device) for k in model_info['input_names'])
